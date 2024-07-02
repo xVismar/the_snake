@@ -1,10 +1,8 @@
-import pygame as py
-from random import randint as rand
+"""Скрипт Змейка на Python для Яндекс.Практикум.
 
-"""
 Автор - Alex Alekseev aka Vismar
-Версия - 1.3
-Дата - 01.07.2024
+Версия - 1.4
+Дата - 02.07.2024
 
 Код содержит скрипт игры Змейка, созданной с применением библиотеки Pygame
 принципов ООП.
@@ -28,6 +26,8 @@ self.draw - Отрисовка одной ячейки на сетке поля
         Если голова == не хвост: змейка двигается на одну ячейку вперед.
 """
 
+import pygame as py
+from random import randint as rand, choice as pick
 
 # Константы для размеров поля и сетки:
 SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
@@ -101,27 +101,24 @@ class GameObject:
 class Apple(GameObject):
     """Дочерний класс Яблоко от родительского класса GameObject."""
 
-    def __init__(self, body_color=APPLE_BG_COLOR, fg_color=APPLE_FG_COLOR,
-                 used_cells=None):
+    def __init__(self, body_color=APPLE_BG_COLOR, fg_color=APPLE_FG_COLOR):
         """Инициализация конструктора класса Apple."""
         super().__init__()
         self.body_color = body_color
         self.fg_color = fg_color
-        self.occupied = used_cells
         self.randomize_position()
 
     def randomize_position(self, used_cell=None):
         """Случайное расположение Яблока на поле."""
         if used_cell is None:
-            used_cell = self.occupied or []
+            used_cell = used_cell or []
 
         while True:
             new_position = ((rand(0, GRID_WIDTH - 1) * GRID_SIZE),
                             (rand(0, GRID_HEIGHT - 1) * GRID_SIZE))
             if new_position not in used_cell:
                 self.position = new_position
-                break
-        self.position = self.position or used_cell
+                return self.position
 
     def draw(self):
         """Отрисовка Яблока на экране."""
@@ -145,13 +142,11 @@ class Snake(GameObject):
         if not new_dir:
             return self.direction
         self.direction = new_dir
-        self.next_direction = None
         return self.direction
 
     def get_head_position(self):
         """Получение текущего положения головы змейки."""
-        self.head_position = self.positions[0]
-        return self.head_position
+        return self.positions[0]
 
     def grow(self):
         """Рост змейки при поедании яблока."""
@@ -163,22 +158,14 @@ class Snake(GameObject):
         """Движение змейки."""
         sn_head_x, sn_head_y = self.get_head_position()
         sn_dir_x, sn_dir_y = self.direction
-        sn_x_upd = (sn_head_x + (grid_size * sn_dir_x))
-        sn_y_upd = (sn_head_y + (grid_size * sn_dir_y))
-
-        # Ограничение движения змейки по границам экрана \ перенос головы
-        if sn_x_upd not in range(0, (SCREEN_WIDTH - GRID_SIZE), GRID_SIZE):
-            self.positions.insert(0, ((sn_x_upd % SCREEN_WIDTH), sn_y_upd))
-        elif sn_y_upd not in range(0, (SCREEN_HEIGHT - GRID_SIZE), GRID_SIZE):
-            self.positions.insert(0, (sn_x_upd, (sn_y_upd % SCREEN_HEIGHT)))
-        else:
-            self.positions.insert(0, (sn_x_upd, sn_y_upd))
+        sn_x_upd = ((sn_head_x + (grid_size * sn_dir_x)) % SCREEN_WIDTH)
+        sn_y_upd = ((sn_head_y + (grid_size * sn_dir_y)) % SCREEN_HEIGHT)
+        self.positions.insert(0, (sn_x_upd, sn_y_upd))
 
         # Затирание хвоста, если он имеется
-        if len(self.positions) > self.length:
-            self.last = self.positions.pop()
-        else:
+        if not len(self.positions) > self.length:
             self.last = None
+        self.last = self.positions.pop()
 
     def draw(self):
         """Отрисовка змейки."""
@@ -196,7 +183,7 @@ class Snake(GameObject):
         self.head_position = None
         self.positions = [self.position]
         self.length = 1
-        self.direction = RIGHT
+        self.direction = pick((UP, DOWN, LEFT, RIGHT))
         self.next_direction = None
         self.last = None
 
@@ -215,6 +202,7 @@ def handle_keys(game_object):
 
 def main():
     """Основная функция.
+
     Инициализирует игровые объекты.
     Запускает игровой цикл.
     Обновляет экран.
@@ -232,20 +220,16 @@ def main():
         clock.tick(SPEED)
 
         # Проверка съедания яблока и рост змеи
-        if not snake.get_head_position() == apple.position:
-            snake.move(snake.direction,
-                       snake.update_direction(handle_keys(snake)))
-        else:
+        snake.move(snake.direction, snake.update_direction(handle_keys(snake)))
+        if apple.position == snake.get_head_position():
             snake.grow()
-            snake.move(snake.direction,
-                       snake.update_direction(handle_keys(snake)))
             apple.randomize_position(snake.positions)
 
         # Проверка столкновения головы змеи с собой
         if snake.get_head_position() in snake.positions[1:]:
             screen.fill(BOARD_BACKGROUND_COLOR)
-            apple.randomize_position(snake.positions)
             snake.reset()
+            apple.randomize_position(snake.positions)
 
         apple.draw()
         snake.draw()
